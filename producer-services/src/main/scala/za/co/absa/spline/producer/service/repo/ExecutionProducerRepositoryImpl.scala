@@ -28,7 +28,7 @@ import org.springframework.stereotype.Repository
 import za.co.absa.spline.persistence.model._
 import za.co.absa.spline.persistence.tx.{InsertQuery, TxBuilder}
 import za.co.absa.spline.persistence.{ArangoImplicits, Persister, model => dbModel}
-import za.co.absa.spline.producer.model.{v1_1 => apiModel}
+import za.co.absa.spline.producer.model.{RecursiveSchemaFinder, v1_1 => apiModel}
 import za.co.absa.spline.producer.service.repo.ExecutionProducerRepositoryImpl._
 
 import scala.compat.java8.FutureConverters._
@@ -149,6 +149,7 @@ class ExecutionProducerRepositoryImpl @Autowired()(db: ArangoDatabaseAsync) exte
 object ExecutionProducerRepositoryImpl {
 
   import za.co.absa.commons.json.DefaultJacksonJsonSerDe._
+  import za.co.absa.commons.lang.OptionImplicits._
 
   private[repo] def createEventKey(e: apiModel.ExecutionEvent) =
     s"${e.planId}:${jl.Long.toString(e.timestamp, 36)}"
@@ -192,8 +193,11 @@ object ExecutionProducerRepositoryImpl {
 
   private def createOperations(executionPlan: apiModel.ExecutionPlan): Seq[dbModel.Operation] = {
     val allOperations = executionPlan.operations.all
-    val maybeSchemaFinder = executionPlan.expressions.map(attrs =>
-      new RecursiveSchemaFinder(allOperations, attrs.mappingByOperation))
+
+    val schemaFinder = new RecursiveSchemaFinder(
+      allOperations.map(op => op.id -> op.output.asOption).toMap,
+      allOperations.map(op => op.id -> op.childIds).toMap
+    )
 
     allOperations.map {
       case r: apiModel.ReadOperation =>
@@ -201,8 +205,8 @@ object ExecutionProducerRepositoryImpl {
           inputSources = r.inputSources,
           params = r.params,
           extra = r.extra,
-          outputSchema = executionPlan.expressions.flatMap(_.mappingByOperation.get(r.id)),
-          _key = s"${executionPlan.id}:${r.id.toString}"
+          outputSchema = r.output.asOption,
+          _key = s"${executionPlan.id}:${r.id}"
         )
       case w: apiModel.WriteOperation =>
         dbModel.Write(
@@ -210,15 +214,15 @@ object ExecutionProducerRepositoryImpl {
           append = w.append,
           params = w.params,
           extra = w.extra,
-          outputSchema = maybeSchemaFinder.flatMap(_.findSchemaOf(w)),
-          _key = s"${executionPlan.id}:${w.id.toString}"
+          outputSchema = schemaFinder.findSchemaByOpId(w.id),
+          _key = s"${executionPlan.id}:${w.id}"
         )
       case t: apiModel.DataOperation =>
         dbModel.Transformation(
           params = t.params,
           extra = t.extra,
-          outputSchema = maybeSchemaFinder.flatMap(_.findSchemaOf(t)),
-          _key = s"${executionPlan.id}:${t.id.toString}"
+          outputSchema = schemaFinder.findSchemaByOpId(t.id),
+          _key = s"${executionPlan.id}:${t.id}"
         )
     }
   }
