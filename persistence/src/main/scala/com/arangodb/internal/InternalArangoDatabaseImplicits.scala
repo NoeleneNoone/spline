@@ -75,7 +75,7 @@ package com.arangodb.internal {
           case 404 =>
             sys.error("" +
               "'/_admin/execute' endpoint isn't reachable. " +
-              "Make sure ArangoDB server is running with '--javascript.allow-admin-execute' option. " +
+              "Make sure ArangoDB server is running with --javascript.allow-admin-execute option. " +
               "See https://www.arangodb.com/docs/stable/programs-arangod-javascript.html#javascript-code-execution")
           case _ =>
             sys.error(s"ArangoDB response: $respStatusLine. $respBody")

@@ -16,6 +16,8 @@
 
 package za.co.absa.spline.persistence
 
+import java.time.{Clock, ZonedDateTime}
+
 import com.arangodb.async.ArangoDatabaseAsync
 import com.arangodb.entity.EdgeDefinition
 import com.arangodb.model._
@@ -31,6 +33,7 @@ import za.co.absa.spline.persistence.model.{CollectionDef, GraphDef, ViewDef}
 
 import scala.collection.JavaConverters._
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 
@@ -41,12 +44,16 @@ trait ArangoManager {
    */
   def initialize(onExistsAction: OnDBExistsAction): Future[Boolean]
   def upgrade(): Future[Unit]
+  def prune(retentionPeriod: Duration): Future[Unit]
+  def prune(thresholdDate: ZonedDateTime): Future[Unit]
 }
 
 class ArangoManagerImpl(
   db: ArangoDatabaseAsync,
   dbVersionManager: DatabaseVersionManager,
+  dataRetentionManager: DataRetentionManager,
   migrator: Migrator,
+  clock: Clock,
   appDBVersion: SemanticVersion)
   (implicit val ex: ExecutionContext)
   extends ArangoManager
@@ -73,6 +80,14 @@ class ArangoManagerImpl(
       currentVersion <- dbVersionManager.currentVersion
       migrationDone <- migrator.migrate(currentVersion, appDBVersion)
     } yield migrationDone
+  }
+
+  override def prune(retentionPeriod: Duration): Future[Unit] = {
+    dataRetentionManager.pruneBefore(clock.millis - retentionPeriod.toMillis)
+  }
+
+  override def prune(dateTime: ZonedDateTime): Future[Unit] = {
+    dataRetentionManager.pruneBefore(dateTime.toInstant.toEpochMilli)
   }
 
   private def deleteDbIfRequested(db: ArangoDatabaseAsync, dropIfExists: Boolean) =

@@ -19,6 +19,7 @@ package za.co.absa.spline.admin
 import org.backuity.ansi.AnsiFormatter.FormattedHelper
 import scopt.{OptionDef, OptionParser}
 import za.co.absa.spline.admin.AdminCLI.AdminCLIConfig
+import za.co.absa.spline.admin.DateTimeUtils.parseZonedDateTime
 import za.co.absa.spline.common.SplineBuildInfo
 import za.co.absa.spline.persistence.ArangoConnectionURL.{ArangoDbScheme, ArangoSecureDbScheme}
 import za.co.absa.spline.persistence.OnDBExistsAction.{Drop, Fail, Skip}
@@ -43,12 +44,12 @@ class AdminCLI(dbManagerFactory: ArangoManagerFactory) {
 
     val cliParser: OptionParser[AdminCLIConfig] = new OptionParser[AdminCLIConfig]("Spline Admin CLI") {
       head("Spline Admin Command Line Interface", SplineBuildInfo.Version)
-
+      head("For more info and examples see https://github.com/AbsaOSS/spline/tree/develop/admin/README.md")
       help("help").text("prints this usage text")
 
       def dbCommandOptions: Seq[OptionDef[_, AdminCLIConfig]] = Seq(
         opt[String]('t', "timeout")
-          text s"Timeout in format `<length><unit>` or `Inf` for infinity. Default is ${DBInit().timeout}"
+          text s"Timeout in format <length><unit> or `Inf` for infinity. Default is ${DBInit().timeout}"
           action { case (s, c@AdminCLIConfig(cmd: DBCommand)) => c.copy(cmd.timeout = Duration(s)) },
         opt[Unit]('k', "insecure")
           text s"Allow insecure server connections when using SSL; disallowed by default"
@@ -76,15 +77,37 @@ class AdminCLI(dbManagerFactory: ArangoManagerFactory) {
         text "Upgrade Spline database"
         children (dbCommandOptions: _*))
 
+      (cmd("db-prune")
+        action ((_, c) => c.copy(cmd = DBPrune()))
+        text "Prune old data to decrease the database footprint and speed up queries."
+        children (dbCommandOptions: _*)
+        children(
+        opt[String]('r', "retain-for")
+          text "Retention period in format <length><unit>. " +
+          "Example: `--retain-for 30d` means to retain data that is NOT older than 30 days from now " +
+          "(in a sense that 1 day is 24 hours, 1 hour is 60 minutes etc)`"
+          action { case (s, c@AdminCLIConfig(cmd: DBPrune)) => c.copy(cmd.copy(retentionPeriod = Some(Duration(s)))) },
+        opt[String]('d', "before-date")
+          text "A datetime with an optional time and time zone parts in ISO-8601-like format " +
+          "that indicates the beginning of the retention date range. " +
+          "I.e. data older than the specified datetime is subject for removal."
+          action { case (s, c@AdminCLIConfig(cmd: DBPrune)) => c.copy(cmd.copy(thresholdDate = Some(parseZonedDateTime(s)))) },
+      ))
+
       checkConfig {
         case AdminCLIConfig(null) =>
           failure("No command given")
         case AdminCLIConfig(cmd: DBCommand) if cmd.dbUrl == null =>
           failure("DB connection string is required")
         case AdminCLIConfig(cmd: DBCommand) if cmd.dbUrl.startsWith(ArangoSecureDbScheme) && !cmd.insecure =>
-          failure("At the moment, only unsecure SSL is supported; when using the secure scheme, please add the -k option to skip server certificate verification altogether")
+          failure("At the moment, only unsecure SSL is supported; " +
+            "when using the secure scheme, please add the -k option to skip server certificate verification altogether")
         case AdminCLIConfig(cmd: DBInit) if cmd.force && cmd.skip =>
-          failure("Options '--force' and '--skip' cannot be used together")
+          failure("Options --force and --skip cannot be used together")
+        case AdminCLIConfig(cmd: DBPrune) if cmd.retentionPeriod.isEmpty && cmd.thresholdDate.isEmpty =>
+          failure("One of the following options must be specified: --retain-for or --before-date")
+        case AdminCLIConfig(cmd: DBPrune) if cmd.retentionPeriod.isDefined && cmd.thresholdDate.isDefined =>
+          failure("Options --retain-for and --before-date cannot be used together")
         case _ =>
           success
       }
@@ -109,6 +132,14 @@ class AdminCLI(dbManagerFactory: ArangoManagerFactory) {
       case DBUpgrade(url, timeout, _) =>
         val dbManager = dbManagerFactory.create(ArangoConnectionURL(url))
         Await.result(dbManager.upgrade(), timeout)
+
+      case DBPrune(url, timeout, _, Some(retentionPeriod), _) =>
+        val dbManager = dbManagerFactory.create(ArangoConnectionURL(url))
+        Await.result(dbManager.prune(retentionPeriod), timeout)
+
+      case DBPrune(url, timeout, _, _, Some(dateTime)) =>
+        val dbManager = dbManagerFactory.create(ArangoConnectionURL(url))
+        Await.result(dbManager.prune(dateTime), timeout)
     }
 
     println(ansi"%green{DONE}")

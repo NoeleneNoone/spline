@@ -16,6 +16,8 @@
 
 package za.co.absa.spline.persistence
 
+import java.time.Clock
+
 import com.arangodb.async.ArangoDatabaseAsync
 import za.co.absa.spline.persistence.migration.{MigrationScriptRepository, Migrator}
 
@@ -32,14 +34,23 @@ class ArangoManagerFactoryImpl()(implicit ec: ExecutionContext) extends ArangoMa
 
     def dbManagerFactory(db: ArangoDatabaseAsync): ArangoManagerImpl = {
       val versionManager = new DatabaseVersionManager(db)
+      val drManager = new DataRetentionManager(db)
       val migrator = new Migrator(db, scriptRepo, versionManager)
-      new ArangoManagerImpl(db, versionManager, migrator, scriptRepo.latestToVersion)
+      val clock = Clock.systemDefaultZone
+      new ArangoManagerImpl(
+        db,
+        versionManager,
+        drManager,
+        migrator,
+        clock,
+        scriptRepo.latestToVersion
+      )
     }
 
     def dbFacadeFactory(): ArangoDatabaseFacade =
       new ArangoDatabaseFacade(connectionURL)
 
-    new AutoClosingArangoManagerProxy(dbManagerFactory, dbFacadeFactory)
+    AutoClosingArangoManagerProxy.create(dbManagerFactory, dbFacadeFactory)
   }
 
 }
