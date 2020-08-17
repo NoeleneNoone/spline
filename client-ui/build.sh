@@ -22,7 +22,6 @@ echo "Building Spline UI v$SPLINE_VERSION"
 # Install required Node version
 . ../build/install-node.sh
 
-# Clone the UI repo
 git clone https://github.com/AbsaOSS/spline-ui.git
 cd spline-ui
 

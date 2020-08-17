@@ -24,7 +24,6 @@ echo "Building Spline UI v%SPLINE_VERSION%"
 :: TODO: Implement `install-node` script for Windows. See: https://github.com/AbsaOSS/spline/issues/499
 :: ../build/install-node.cmd
 
-:: Clone the UI repo
 git clone https://github.com/AbsaOSS/spline-ui.git
 cd spline-ui
 
