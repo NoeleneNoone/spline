@@ -22,7 +22,7 @@ import org.webjars.WebJarAssetLocator
 class WebJarsResourceFuzzyResolver(webJarAssetLocator: WebJarAssetLocator)
   extends WebJarsResourceResolver(webJarAssetLocator) {
 
-  private val webjarPartialPathExtractor = """^(?:[^/]?/){4}((?:[^/]+/)[^/]+)/?$""".r
+  private val webjarPartialPathExtractor = """^(?:[^/]*?/){4}((?:[^/]+/)*[^/]+)/?$""".r
 
   override def findWebJarResourcePath(path: String): String =
     Option(super.findWebJarResourcePath(path))
