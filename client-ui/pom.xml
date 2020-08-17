@@ -85,6 +85,7 @@
             <configuration>
               <excludes combine.children="append">
                 <exclude>dist/**</exclude>
+                <exclude>spline-ui/**</exclude>
                 <exclude>node_modules/**</exclude>
                 <exclude>.editorconfig</exclude>
                 <exclude>src/browserslist</exclude>
