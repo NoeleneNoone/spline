@@ -24,10 +24,13 @@ echo "Building Spline UI v%SPLINE_VERSION%"
 :: TODO: Implement `install-node` script for Windows. See: https://github.com/AbsaOSS/spline/issues/499
 :: ../build/install-node.cmd
 
+:: Clone the UI repo
+git clone https://github.com/AbsaOSS/spline-ui.git
+cd spline-ui
+
 :: Install NPM dependencies
 npm ci --no-color
 
 :: Run Spline UI Build
-npm run swagger-gen --no-color
 npm run ng version
-npm run ng build --prod
+npm run build:prod

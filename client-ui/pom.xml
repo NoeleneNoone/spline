@@ -47,24 +47,6 @@
 
         <executions>
           <execution>
-            <id>gen-swagger-json</id>
-            <phase>process-classes</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <target>
-                <property name="plugin_classpath" refid="maven.plugin.classpath" />
-                <java classpath="${plugin_classpath}" classname="za.co.absa.spline.swagger.SwaggerDocGenCLI">
-                  <arg value="-o" />
-                  <arg value="${project.basedir}/src/app/generated/swagger.json" />
-                  <arg value="za.co.absa.spline.consumer.rest.ConsumerRESTConfig" />
-                </java>
-              </target>
-            </configuration>
-          </execution>
-
-          <execution>
             <phase>prepare-package</phase>
             <goals>
               <goal>run</goal>
@@ -82,7 +64,7 @@
 
                 <echo message="Build Spline Webjar" />
                 <copy todir="${project.build.outputDirectory}/META-INF/resources/webjars/spline/${project.version}">
-                  <fileset dir="${project.basedir}/dist/ui2" />
+                  <fileset dir="${project.basedir}/spline-ui/dist/spline-ui" />
                 </copy>
               </target>
             </configuration>

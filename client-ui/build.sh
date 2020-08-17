@@ -19,6 +19,10 @@ export NODE_OPTIONS="--max_old_space_size=2048"
 
 echo "Building Spline UI v$SPLINE_VERSION"
 
+:: Clone the UI repo
+git clone https://github.com/AbsaOSS/spline-ui.git
+cd spline-ui
+
 # Install required Node version
 . ../build/install-node.sh
 
@@ -26,6 +30,5 @@ echo "Building Spline UI v$SPLINE_VERSION"
 npm ci --no-color
 
 # Run Spline UI Build
-npm run swagger-gen --no-color
 npm run ng version
-npm run ng build --prod
+npm run build:prod
