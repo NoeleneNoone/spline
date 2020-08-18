@@ -18,9 +18,9 @@ package za.co.absa.spline.admin
 
 import java.time.{ZoneId, ZonedDateTime}
 
-import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito._
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.scalatest.OneInstancePerTest
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -157,9 +157,12 @@ class AdminCLISpec
     it should "prune support threshold timestamp" in assertingStdOut(include("DONE")) {
       cli.exec(Array("db-prune", "--before-date", "2020-04-11", "arangodb://foo/bar"))
       cli.exec(Array("db-prune", "--before-date", "2020-04-11T22:33Z", "arangodb://foo/bar"))
-      verify(arangoManagerMock).prune(ZonedDateTime.of(2020, 4, 11, 0, 0, 0, 0, ZoneId.systemDefault))
-      verify(arangoManagerMock).prune(ZonedDateTime.of(2020, 4, 11, 22, 33, 0, 0, ZoneId.of("UTC")))
-      verifyNoMoreInteractions(arangoManagerMock)
+
+      val inOrder = Mockito.inOrder(arangoManagerMock)
+
+      inOrder.verify(arangoManagerMock).prune(ZonedDateTime.of(2020, 4, 11, 0, 0, 0, 0, ZoneId.systemDefault))
+      inOrder.verify(arangoManagerMock).prune(ZonedDateTime.of(2020, 4, 11, 22, 33, 0, 0, ZoneId.of("Z")))
+      inOrder.verifyNoMoreInteractions()
     }
   }
 }
